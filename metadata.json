@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Java Project Generator",
+  "description": "An AI-powered tool to generate boilerplate Java project structures and code using the Gemini API. Specify your project details, dependencies, and main class logic, and get a complete project setup in seconds.",
+  "requestFramePermissions": []
+}
