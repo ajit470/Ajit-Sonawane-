@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { GeneratedFile, FileTreeNode } from '../types';
+import type { GeneratedFile, FileTreeNode, ProjectConfig } from '../types';
 import { FileTree } from './FileTree';
 import { CodeViewer } from './CodeViewer';
 
 interface GeneratedProjectViewProps {
   files: GeneratedFile[];
+  projectConfig: ProjectConfig;
   onRegenerate: () => void;
   isRegenerating: boolean;
 }
@@ -28,15 +29,14 @@ const buildFileTree = (files: GeneratedFile[]): FileTreeNode => {
   return tree;
 };
 
-export const GeneratedProjectView: React.FC<GeneratedProjectViewProps> = ({ files, onRegenerate, isRegenerating }) => {
+export const GeneratedProjectView: React.FC<GeneratedProjectViewProps> = ({ files, projectConfig, onRegenerate, isRegenerating }) => {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
 
   const fileTree = useMemo(() => buildFileTree(files), [files]);
 
   useEffect(() => {
-    // Automatically select the first file when the files change
     if (files.length > 0) {
-      // Prioritize build files or main application files for default view
       const preferredFiles = ['pom.xml', 'build.gradle.kts', 'build.gradle'];
       const mainAppFile = files.find(f => f.path.includes('Application.java') || f.path.includes('Main.java'));
       if(mainAppFile) preferredFiles.push(mainAppFile.path);
@@ -55,20 +55,42 @@ export const GeneratedProjectView: React.FC<GeneratedProjectViewProps> = ({ file
       setSelectedFilePath(null);
     }
   }, [files]);
+  
+  const handleShare = () => {
+    try {
+        const configString = JSON.stringify(projectConfig);
+        const encodedConfig = btoa(configString); // Base64 encode
+        const url = `${window.location.origin}${window.location.pathname}#/share/${encodedConfig}`;
+        navigator.clipboard.writeText(url);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2500);
+    } catch (error) {
+        console.error("Failed to create share link:", error);
+    }
+  };
 
   const selectedFile = useMemo(() => {
     return files.find(f => f.path === selectedFilePath) || null;
   }, [files, selectedFilePath]);
 
+  const buttonClass = "bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-1 px-3 rounded-md transition duration-300 ease-in-out transform hover:scale-105 text-sm";
+
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-shrink-0 flex justify-end items-center p-2 bg-gray-900 border-b border-gray-700">
+      <div className="flex-shrink-0 flex justify-end items-center p-2 bg-gray-900 border-b border-gray-700 space-x-2">
+        <button
+          onClick={handleShare}
+          disabled={isRegenerating}
+          className={buttonClass}
+        >
+          {isCopied ? 'Link Copied!' : 'Share Project'}
+        </button>
         <button
           onClick={onRegenerate}
           disabled={isRegenerating}
-          className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-1 px-3 rounded-md transition duration-300 ease-in-out transform hover:scale-105 text-sm"
+          className={buttonClass}
         >
-          {isRegenerating ? 'Generating...' : 'Generate Again with Same Config'}
+          {isRegenerating ? 'Generating...' : 'Generate Again'}
         </button>
       </div>
       <div className="flex flex-row flex-grow overflow-hidden">

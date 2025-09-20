@@ -1,32 +1,25 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { ProjectConfig } from '../types';
 
 interface ProjectFormProps {
-  onSubmit: (config: ProjectConfig) => void;
+  config: ProjectConfig;
+  setConfig: (config: ProjectConfig) => void;
+  onSubmit: () => void;
   isLoading: boolean;
 }
 
-export const ProjectForm: React.FC<ProjectFormProps> = ({ onSubmit, isLoading }) => {
-  const [config, setConfig] = useState<ProjectConfig>({
-    projectName: 'my-awesome-project',
-    groupId: 'com.example',
-    artifactId: 'demo',
-    javaVersion: '17',
-    buildTool: 'Maven',
-    dependencies: 'Lombok, Spring Boot DevTools',
-    prompt: 'A simple Spring Boot application with a REST endpoint at /hello that returns "Hello, World!". Include JUnit 5 for testing.',
-  });
-
+export const ProjectForm: React.FC<ProjectFormProps> = ({ config, setConfig, onSubmit, isLoading }) => {
+  
   const handleChange = <T extends HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,>(
     e: React.ChangeEvent<T>
   ) => {
     const { name, value } = e.target;
-    setConfig(prev => ({ ...prev, [name]: value }));
+    setConfig({ ...config, [name]: value });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(config);
+    onSubmit();
   };
   
   const inputClass = "w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition duration-200";

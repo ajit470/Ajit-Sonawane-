@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import type { ProjectConfig, GeneratedFile } from './types';
 import { Header } from './components/Header';
 import { ProjectForm } from './components/ProjectForm';
@@ -6,20 +6,33 @@ import { GeneratedProjectView } from './components/GeneratedProjectView';
 import { Loader } from './components/Loader';
 import { generateJavaProject } from './services/geminiService';
 
+const initialConfig: ProjectConfig = {
+  projectName: 'my-awesome-project',
+  groupId: 'com.example',
+  artifactId: 'demo',
+  javaVersion: '17',
+  buildTool: 'Maven',
+  dependencies: 'Lombok, Spring Boot DevTools',
+  prompt: 'A simple Spring Boot application with a REST endpoint at /hello that returns "Hello, World!". Include JUnit 5 for testing.',
+};
+
+
 const App: React.FC = () => {
+  const [projectConfig, setProjectConfig] = useState<ProjectConfig>(initialConfig);
   const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastConfig, setLastConfig] = useState<ProjectConfig | null>(null);
+  const [lastSuccessfulConfig, setLastSuccessfulConfig] = useState<ProjectConfig | null>(null);
 
-  const handleGenerateProject = useCallback(async (config: ProjectConfig) => {
+  const handleGenerateProject = useCallback(async (configToGenerate: ProjectConfig) => {
     setIsLoading(true);
     setError(null);
     setGeneratedFiles(null);
+    setProjectConfig(configToGenerate); // Ensure form is in sync
     try {
-      const files = await generateJavaProject(config);
+      const files = await generateJavaProject(configToGenerate);
       setGeneratedFiles(files);
-      setLastConfig(config); // Store config on success
+      setLastSuccessfulConfig(configToGenerate); // Store config on success
     } catch (e) {
       console.error(e);
       setError(e instanceof Error ? e.message : 'An unknown error occurred.');
@@ -27,19 +40,45 @@ const App: React.FC = () => {
       setIsLoading(false);
     }
   }, []);
+  
+  // Effect to handle loading project from URL hash
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#/share/')) {
+        try {
+          const encodedConfig = hash.substring('#/share/'.length);
+          const jsonConfig = atob(encodedConfig);
+          const config = JSON.parse(jsonConfig) as ProjectConfig;
+          handleGenerateProject(config);
+          // Clear the hash to prevent re-triggering on refresh
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        } catch (err) {
+            console.error("Failed to parse config from URL hash", err);
+            setError("Could not load project from the provided link. The link may be corrupted.");
+        }
+      }
+    };
+    handleHashChange(); // Run on initial load
+  }, [handleGenerateProject]);
 
   const handleRegenerate = useCallback(() => {
-    if (lastConfig) {
-      handleGenerateProject(lastConfig);
+    if (lastSuccessfulConfig) {
+      handleGenerateProject(lastSuccessfulConfig);
     }
-  }, [lastConfig, handleGenerateProject]);
+  }, [lastSuccessfulConfig, handleGenerateProject]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans flex flex-col">
       <Header />
       <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col md:flex-row gap-8">
         <div className="md:w-1/3 lg:w-1/4 flex-shrink-0">
-          <ProjectForm onSubmit={handleGenerateProject} isLoading={isLoading} />
+          <ProjectForm
+            config={projectConfig}
+            setConfig={setProjectConfig}
+            onSubmit={() => handleGenerateProject(projectConfig)}
+            isLoading={isLoading}
+          />
         </div>
         <div className="md:w-2/3 lg:w-3/4 flex-grow flex flex-col bg-gray-800 rounded-lg shadow-2xl overflow-hidden">
           {isLoading && (
@@ -67,9 +106,10 @@ const App: React.FC = () => {
               <p className="mt-2 text-gray-500">Fill out the form on the left to get started.</p>
             </div>
           )}
-          {generatedFiles && (
-            <GeneratedProjectView 
-              files={generatedFiles} 
+          {generatedFiles && lastSuccessfulConfig && (
+            <GeneratedProjectView
+              files={generatedFiles}
+              projectConfig={lastSuccessfulConfig}
               onRegenerate={handleRegenerate}
               isRegenerating={isLoading}
             />
